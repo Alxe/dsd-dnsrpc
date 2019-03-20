@@ -3,12 +3,12 @@
 
 #include "linkedlist.h"
 
-
 node_t Node_New(const char *name, const char *ip) {
-	node_t node = (node_t) malloc(sizeof(struct LinkedList));
+	node_t node = malloc(sizeof(struct LinkedList));
+	if(node == NULL) return NULL;
 
-	node->name = name;
-	node->ip = ip;
+	strcpy(node->name, name);
+	strcpy(node->ip, ip);
 	node->next = NULL;
 
 	return node;
@@ -20,8 +20,10 @@ void Node_Free(node_t node) {
 	}
 
 	node_t tmp = node->next;
-	node->next = NULL;
-	free(node);
+
+	free(node->name);
+	free(node->ip);
+	free(node);	
 
 	Node_Free(tmp);
 }
@@ -31,25 +33,24 @@ void Node_AppendNode(node_t to, node_t node) {
 		return;
 	}
 
-	if (to->next != NULL) {
-		Node_AppendNode(to->next, node);
-	} else {
+	if (to->next == NULL) {
 		to->next = node;
+	} else {
+		Node_AppendNode(to->next, node);
 	}
 }
 
 void LinkedList_Append(linkedlist_t list, const char *name, const char *ip) {
-	if (list == NULL || list->head == NULL) {
+	if (list == NULL) {
 		return;
 	}
 
-	node_t to = list->head;
 	node_t node = Node_New(name, ip);
 
-	if (to->next != NULL) {
-		Node_AppendNode(to->next, node);
+	if(list->head == NULL) {
+		list->head = node;
 	} else {
-		to->next = node;
+		Node_AppendNode(list->head, node);
 	}
 }
 

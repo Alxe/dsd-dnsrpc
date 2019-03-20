@@ -14,7 +14,7 @@ xdr_respuesta (XDR *xdrs, respuesta *objp)
 		 return FALSE;
 	switch (objp->errno) {
 	case 0:
-		 if (!xdr_string (xdrs, &objp->respuesta_u.cadena, ~0))
+		 if (!xdr_string (xdrs, &objp->respuesta_u.cadena, 256))
 			 return FALSE;
 		break;
 	default:

@@ -10,7 +10,7 @@
 CLIENT *
 dns_1(char *host)
 {
-	CLIENT *clnt = clnt_create (host, 0x20000001, DNSv1, "udp");
+	CLIENT *clnt = clnt_create (host, 0x20000001, DNSv1, "tcp");
 	if (clnt == NULL) {
 		clnt_pcreateerror (host);
 		exit (1);
@@ -37,6 +37,11 @@ main (int argc, char *argv[])
 		}
 
 		respuesta *res = consultar_1(argv[3], clnt);
+		if(res == NULL) {
+			fprintf(stderr, "Could not connect to server\n");
+			exit(-1);
+		}
+
 		if(res->errno == 0) {
 			printf("With name %s, found IP %s\n", argv[3], res->respuesta_u.cadena);
 		} else {
@@ -52,6 +57,11 @@ main (int argc, char *argv[])
 
 		printf("> %s %s %s\n", "registrar", argv[3], argv[4]);
 		int *res = registrar_1(argv[3], argv[4], clnt);
+		if(res == NULL) {
+			fprintf(stderr, "Could not connect to server\n");
+			exit(-1);
+		}
+
 		if(*res == 0) {
 			printf("With name %s, registered IP %s\n", argv[3], argv[4]);
 		} else {
@@ -66,6 +76,11 @@ main (int argc, char *argv[])
 		}
 
 		int *res = liberar_1(argv[3], clnt);
+		if(res == NULL) {
+			fprintf(stderr, "Could not connect to server\n");
+			exit(-1);
+		}
+
 		if(*res == 0) {
 			printf("With name %s, IP was freed\n", argv[3]);
 		} else {

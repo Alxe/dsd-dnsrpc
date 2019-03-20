@@ -1,6 +1,6 @@
 union respuesta switch (int errno) {
   case 0:
-    string cadena<>;
+    string cadena<256>;
   default:
     void;
 };

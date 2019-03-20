@@ -22,17 +22,19 @@ typedef struct _dotstring {
 } dotstring_t;
 
 void decompose(dotstring_t *res, const char *str) {
-	char buf[256];
+	char buf[512];
 	strcpy(buf, str);
 
-  int dot_pos = strchr(str, '.') - str;
-  buf[dot_pos] = '\0';
+  char *dotptr = strchr(buf, '.');
+  *dotptr = '\0';
 
   strcpy(res->top, buf);
-  strcpy(res->sub, buf + dot_pos + 1);
+  strcpy(res->sub, dotptr + 1);
 }
 
-struct LinkedList iptable;
+struct LinkedList iptable = {};
+
+CLIENT *clnt1, *clnt2;
 
 respuesta *
 consultar_1_svc(char *name,  struct svc_req *rqstp)
@@ -50,41 +52,44 @@ consultar_1_svc(char *name,  struct svc_req *rqstp)
 		// Return IP found
 		if(ip != NULL) {
 			result.errno = 0;
-			strcpy(result.respuesta_u.cadena, ip);
+			result.respuesta_u.cadena = ip;
 			return &result;
 		}
 	}
 
 	// If top-level DNS, delegate
 	if(DNSID == DNSID_TL) {
-		CLIENT *clnt;
 		respuesta *res;
 
 		// Sub-DNS 1
-		clnt = clnt_create ("localhost", DNSID_C1, DNSv1, "udp");
-		if (clnt != NULL) {
-			
-			res = consultar_1(name, clnt);
+		if(clnt1 == NULL) clnt1 = clnt_create ("localhost", DNSID_C1, DNSv1, "udp");
+		if (clnt1 != NULL) {
+			res = consultar_1(name, clnt1);
 			if (res != NULL && res->errno == 0) {
 				result.errno = res->errno;
-				strcpy(result.respuesta_u.cadena, res->respuesta_u.cadena);
+				result.respuesta_u.cadena = res->respuesta_u.cadena;
+
+				// clnt_destroy(clnt);
 				return &result;
 			}
 		}
+
+		// clnt_destroy(clnt);
 
 		// Sub-DNS 2
-		clnt = clnt_create ("localhost", DNSID_C2, DNSv1, "udp");
-		if (clnt != NULL) {
-			
-			res = consultar_1(name, clnt);
+		if(clnt2 == NULL) clnt2 = clnt_create ("localhost", DNSID_C2, DNSv1, "udp");
+		if (clnt2 != NULL) {
+			res = consultar_1(name, clnt2);
 			if (res != NULL && res->errno == 0) {
 				result.errno = res->errno;
-				strcpy(result.respuesta_u.cadena, res->respuesta_u.cadena);
+				result.respuesta_u.cadena = res->respuesta_u.cadena;
+
+				// clnt_destroy(clnt);
 				return &result;
 			}
 		}
 
-		clnt_destroy(clnt);
+		// clnt_destroy(clnt);
 	}
 
 	// If not found, return an error
@@ -103,16 +108,12 @@ registrar_1_svc(char *name, char *req_ip,  struct svc_req *rqstp)
 	dotstring_t dotstr;
 	decompose(&dotstr, req_ip);
 
-	u_long v = (atol(dotstr.top) | 0x20000000);
 	// Check if this registrar is responsable for requested IP
-	if(DNSID == v) {
-		printf("Registering %s - %s\n", name, req_ip);
+	if(DNSID == (u_long)(atol(dotstr.top) | 0x20000000)) {
 		// If there's data
 		if(iptable.head == NULL) {
-			printf("Starting new data\n");
 			iptable.head = Node_New(name, req_ip);
 		} else {
-			printf("There's already data\n");
 			// Check if IP is already registered
 			if(LinkedList_FindByName(&iptable, name) != NULL) {
 				result = -1;
@@ -127,32 +128,37 @@ registrar_1_svc(char *name, char *req_ip,  struct svc_req *rqstp)
 	} 
 	// Delegate responsability if top-level DNS
 	else if(DNSID == DNSID_TL) {
-		CLIENT *clnt;
 		int *res;
 
 		// Sub-DNS 1
-		clnt = clnt_create ("localhost", DNSID_C1, DNSv1, "udp");
-		if (clnt != NULL) {
+		if(clnt1 == NULL) clnt1 = clnt_create ("localhost", DNSID_C1, DNSv1, "udp");
+		if(clnt1 != NULL) {
 			
-			res = registrar_1(name, req_ip, clnt);
+			res = registrar_1(name, req_ip, clnt1);
 			if (res != NULL && *res == 0) {
 				result = *res;
+
+				// clnt_destroy(clnt);
 				return &result;
 			}
 		}
+
+		// clnt_destroy(clnt);
 
 		// Sub-DNS 2
-		clnt = clnt_create ("localhost", DNSID_C2, DNSv1, "udp");
-		if (clnt != NULL) {
+		if(clnt2 == NULL) clnt2 = clnt_create ("localhost", DNSID_C2, DNSv1, "udp");
+		if(clnt2 != NULL) {
 			
-			res = registrar_1(name, req_ip, clnt);
+			res = registrar_1(name, req_ip, clnt2);
 			if (res != NULL && *res == 0) {
 				result = *res;
+
+				// clnt_destroy(clnt);
 				return &result;
 			}
 		}
 
-		clnt_destroy(clnt);
+		// clnt_destroy(clnt);
 	}
 
 	// No-ones responsability to register, fail
@@ -182,33 +188,37 @@ liberar_1_svc(char *name,  struct svc_req *rqstp)
 	}
 	
 	// Delegate responsability if top-level DNS
-	if(result != 0 && DNSID == DNSID_TL) {
-		CLIENT *clnt;
+	if(DNSID == DNSID_TL) {
+
 		int *res;
 
 		// Sub-DNS 1
-		clnt = clnt_create ("localhost", DNSID_C1, DNSv1, "udp");
-		if (clnt != NULL) {
-			res = liberar_1(name, clnt);
+		if(clnt1 == NULL) clnt1 = clnt_create ("localhost", DNSID_C1, DNSv1, "udp");
+		if (clnt1 != NULL) {
+			res = liberar_1(name, clnt1);
 			if (res != NULL && *res == 0) {
 				result = *res;
+
+				// clnt_destroy(clnt);
 				return &result;
 			}
 		}
 
-		clnt_destroy(clnt);
+		// clnt_destroy(clnt);
 
 		// Sub-DNS 2
-		clnt = clnt_create ("localhost", DNSID_C2, DNSv1, "udp");
-		if (clnt != NULL) {
-			res = liberar_1(name, clnt);
+		if(clnt2 == NULL) clnt2 = clnt_create ("localhost", DNSID_C2, DNSv1, "udp");
+		if (clnt2 != NULL) {
+			res = liberar_1(name, clnt2);
 			if (res != NULL && *res == 0) {
 				result = *res;
+
+				// clnt_destroy(clnt);
 				return &result;
 			}
 		}
 
-		clnt_destroy(clnt);
+		// clnt_destroy(clnt);
 	}
 
 	return &result;

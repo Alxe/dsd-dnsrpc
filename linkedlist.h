@@ -2,9 +2,9 @@
 #define _LINKEDLIST_H
 
 struct Node {
-	const char *name;
-	const char *ip;
 	struct Node *next;
+	char name[256];
+	char ip[256];
 };
 
 typedef struct Node *node_t;
